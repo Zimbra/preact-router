@@ -267,9 +267,16 @@ class Router extends Component {
 	}
 }
 
-const Link = (props) => (
-	createElement('a', assign({ onClick: handleLinkClick }, props))
-);
+const Link = props => {
+	const newProps = assign({}, props);
+	const router = ROUTERS.find(r => r.canRoute(newProps.href));
+
+	if (router && router.props.basePath && !!newProps.href.indexOf(router.props.basePath)) {
+		newProps.href = router.props.basePath + newProps.href;
+	}
+
+	return createElement('a', assign({ onClick: handleLinkClick }, newProps));
+};
 
 const Route = props => createElement(props.component, props);
 

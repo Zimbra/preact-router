@@ -369,9 +369,16 @@ var Router = (function (Component$$1) {
 	return Router;
 }(Component));
 
-var Link = function (props) { return (
-	createElement('a', assign({ onClick: handleLinkClick }, props))
-); };
+var Link = function (props) {
+	var newProps = assign({}, props);
+	var router = ROUTERS.find(function (r) { return r.canRoute(newProps.href); });
+
+	if (router && router.props.basePath && !!newProps.href.indexOf(router.props.basePath)) {
+		newProps.href = router.props.basePath + newProps.href;
+	}
+
+	return createElement('a', assign({ onClick: handleLinkClick }, newProps));
+};
 
 var Route = function (props) { return createElement(props.component, props); };
 

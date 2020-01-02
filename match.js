@@ -63,12 +63,15 @@ var Match = exports.Match = function (_Component) {
 
 	Match.prototype.render = function render(props) {
 		var url = this.nextUrl || (0, _preactRouter.getCurrentUrl)(),
-		    path = url.replace(/\?.+$/, '');
+		    path = url.replace(/\?.+$/, ''),
+		    route = props.basePath && !!props.path.indexOf(props.basePath) ? props.basePath + props.path : props.path;
+
 		this.nextUrl = null;
+
 		return props.children({
 			url: url,
 			path: path,
-			matches: (0, _preactRouter.exec)(path, props.path, {}) !== false
+			matches: (0, _preactRouter.exec)(path, route, {}) !== false
 		});
 	};
 
