@@ -2,7 +2,6 @@ import { h, Component } from 'preact';
 import { subscribers, getCurrentUrl, Link as StaticLink, exec, segmentize  } from 'preact-router';
 
 export class Match extends Component {
-
 	constructor(props, context) {
 		super(props);
 		this.baseUrl = props.basePath || '';
@@ -23,9 +22,11 @@ export class Match extends Component {
 		this.nextUrl = url;
 		this.setState({});
 	};
+
 	componentDidMount() {
 		subscribers.push(this.update);
 	}
+
 	componentWillUnmount() {
 		subscribers.splice(subscribers.indexOf(this.update)>>>0, 1);
 	}
@@ -34,15 +35,20 @@ export class Match extends Component {
 		return {['preact-router-base']: this.baseUrl};
 	}
 
+	render(props) {
+		const url = this.nextUrl || getCurrentUrl(),
+			path = url.replace(/\?.+$/, ''),
+			route =
+				props.basePath && !!props.path.indexOf(props.basePath)
+					? props.basePath + props.path
+					: props.path;
 
-	render(props ) {
-		let url = this.nextUrl || getCurrentUrl(),
-			path = url.replace(/\?.+$/,'');
 		this.nextUrl = null;
+
 		return props.children({
 			url,
 			path,
-			matches: exec(path, props.path, {}) !== false
+			matches: exec(path, route, {}) !== false
 		});
 	}
 }
