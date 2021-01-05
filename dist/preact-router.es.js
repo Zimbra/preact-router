@@ -371,7 +371,7 @@ var Router = (function (Component$$1) {
 
 var Link = function (props) {
 	var newProps = assign({}, props);
-	var router = ROUTERS.find(function (r) { return r.canRoute(newProps.href); });
+	var router = ROUTERS.find(function (r) { return newProps.href && r.canRoute(newProps.href); });
 
 	if (router && router.props.basePath && !!newProps.href.indexOf(router.props.basePath)) {
 		newProps.href = router.props.basePath + newProps.href;
