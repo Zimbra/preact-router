@@ -269,7 +269,7 @@ class Router extends Component {
 
 const Link = props => {
 	const newProps = assign({}, props);
-	const router = ROUTERS.find(r => r.canRoute(newProps.href));
+	const router = ROUTERS.find(r => newProps.href && r.canRoute(newProps.href));
 
 	if (router && router.props.basePath && !!newProps.href.indexOf(router.props.basePath)) {
 		newProps.href = router.props.basePath + newProps.href;
