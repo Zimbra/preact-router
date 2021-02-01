@@ -1,5 +1,5 @@
 import { cloneElement, createElement, Component, toChildArray } from 'preact';
-import { exec, prepareVNodeForRanking, assign, pathRankSort } from './util';
+import { exec, prepareVNodeForRanking, assign, pathRankSort, segmentize } from './util';
 
 let customHistory = null;
 
@@ -42,7 +42,11 @@ function route(url, replace=false) {
 	}
 
 	// only push URL into history if we can handle it
-	if (canRoute(url)) {
+	const router = getMatchingRouter(url);
+	if (router) {
+		if (!url.startsWith(router.baseUrl)) {
+			url = router.baseUrl + url;
+		}
 		setUrl(url, replace ? 'replace' : 'push');
 	}
 
@@ -51,9 +55,9 @@ function route(url, replace=false) {
 
 
 /** Check if the given URL can be handled by any router instances. */
-function canRoute(url) {
+function getMatchingRouter(url) {
 	for (let i=ROUTERS.length; i--; ) {
-		if (ROUTERS[i].canRoute(url)) return true;
+		if (ROUTERS[i].canRoute(url)) return ROUTERS[i];
 	}
 	return false;
 }
@@ -141,10 +145,23 @@ function initEventListeners() {
 
 
 class Router extends Component {
-	constructor(props) {
+	constructor(props, context) {
 		super(props);
+		this.baseUrl = props.basePath || '';
+		if (props.path) {
+			let segments = segmentize(props.path);
+			segments.forEach(segment => {
+				if (segment.indexOf(':') == -1) {
+					this.baseUrl = this.baseUrl + '/' + segment;
+				}
+			});
+		}
 		if (props.history) {
 			customHistory = props.history;
+		}
+
+		if (context && context['preact-router-base'] && !this.props.base) {
+			this.baseUrl = context['preact-router-base'] + this.baseUrl;
 		}
 
 		this.state = {
@@ -152,6 +169,10 @@ class Router extends Component {
 		};
 
 		initEventListeners();
+	}
+
+	getChildContext() {
+		return  {['preact-router-base']: this.baseUrl};
 	}
 
 	shouldComponentUpdate(props) {
@@ -209,7 +230,7 @@ class Router extends Component {
 			.filter(prepareVNodeForRanking)
 			.sort(pathRankSort)
 			.map( vnode => {
-				let matches = exec(url, vnode.props.path, vnode.props);
+				let matches = exec(url, this.baseUrl + vnode.props.path, vnode.props);
 				if (matches) {
 					if (invoke !== false) {
 						let newProps = { url, matches };
@@ -246,9 +267,16 @@ class Router extends Component {
 	}
 }
 
-const Link = (props) => (
-	createElement('a', assign({ onClick: handleLinkClick }, props))
-);
+const Link = props => {
+	const newProps = assign({}, props);
+	const router = ROUTERS.find(r => newProps.href && r.canRoute(newProps.href));
+
+	if (router && router.props.basePath && !!newProps.href.indexOf(router.props.basePath)) {
+		newProps.href = router.props.basePath + newProps.href;
+	}
+
+	return createElement('a', assign({ onClick: handleLinkClick }, newProps));
+};
 
 const Route = props => createElement(props.component, props);
 
@@ -259,5 +287,5 @@ Router.Router = Router;
 Router.Route = Route;
 Router.Link = Link;
 
-export { subscribers, getCurrentUrl, route, Router, Route, Link, exec };
+export { subscribers, getCurrentUrl, route, Router, Route, Link, exec, segmentize };
 export default Router;
