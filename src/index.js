@@ -1,12 +1,13 @@
 import {
 	h,
 	cloneElement,
+	createElement,
 	Component,
 	toChildArray,
 	createContext
 } from 'preact';
 import { useContext, useState, useEffect } from 'preact/hooks';
-import { exec, prepareVNodeForRanking, assign, pathRankSort } from './util';
+import { exec, prepareVNodeForRanking, assign, pathRankSort, segmentize } from './util';
 
 const EMPTY = {};
 const ROUTERS = [];
@@ -62,7 +63,11 @@ function route(url, replace = false) {
 	}
 
 	// only push URL into history if we can handle it
-	if (canRoute(url)) {
+	const router = getMatchingRouter(url);
+	if (router) {
+		if (!url.startsWith(router.baseUrl)) {
+			url = router.baseUrl + url;
+		}
 		setUrl(url, replace ? 'replace' : 'push');
 	}
 
@@ -70,9 +75,9 @@ function route(url, replace = false) {
 }
 
 /** Check if the given URL can be handled by any router instances. */
-function canRoute(url) {
-	for (let i = ROUTERS.length; i--; ) {
-		if (ROUTERS[i].canRoute(url)) return true;
+function getMatchingRouter(url) {
+	for (let i=ROUTERS.length; i--; ) {
+		if (ROUTERS[i].canRoute(url)) return ROUTERS[i];
 	}
 	return false;
 }
@@ -145,9 +150,22 @@ function initEventListeners() {
  * @class
  * @this {import('preact').Component}
  */
-function Router(props) {
+function Router(props, context) {
+	this.baseUrl = props.basePath || '';
+	if (props.path) {
+		let segments = segmentize(props.path);
+		segments.forEach(segment => {
+			if (segment.indexOf(':') === -1) {
+				this.baseUrl = this.baseUrl + '/' + segment;
+			}
+		});
+	}
 	if (props.history) {
 		customHistory = props.history;
+	}
+
+	if (context && context['preact-router-base'] && !props.base) {
+		this.baseUrl = context['preact-router-base'] + this.baseUrl;
 	}
 
 	this.state = {
@@ -159,6 +177,9 @@ function Router(props) {
 const RouterProto = (Router.prototype = new Component());
 
 assign(RouterProto, {
+	getChildContext() {
+		return { ['preact-router-base']: this.baseUrl };
+	},
 	shouldComponentUpdate(props) {
 		if (props.static !== true) return true;
 		return (
@@ -217,7 +238,8 @@ assign(RouterProto, {
 		children = children.filter(prepareVNodeForRanking).sort(pathRankSort);
 		for (let i = 0; i < children.length; i++) {
 			let vnode = children[i];
-			let matches = exec(url, vnode.props.path, vnode.props);
+			let path = vnode.props.path || '';
+			let matches = exec(url, this.baseUrl + path, vnode.props);
 			if (matches) return [vnode, matches];
 		}
 	},
@@ -268,9 +290,25 @@ assign(RouterProto, {
 	}
 });
 
-const Link = props => h('a', assign({ onClick: delegateLinkHandler }, props));
+const Link = props => {
+	const newProps = assign({}, props);
+	if (newProps.href) {
+		const router = ROUTERS.find(r => r.canRoute(newProps.href));
+		if (router && router.props.basePath && !!newProps.href.indexOf(router.props.basePath)) {
+			newProps.href = router.props.basePath + newProps.href;
+		}
+	}
+	return h('a', assign({ onClick: delegateLinkHandler }, newProps));
+};
 
 const Route = props => h(props.component, props);
 
-export { getCurrentUrl, route, Router, Route, Link, exec, useRouter };
+Router.subscribers = SUBS;
+Router.getCurrentUrl = getCurrentUrl;
+Router.route = route;
+Router.Router = Router;
+Router.Route = Route;
+Router.Link = Link;
+
+export { SUBS as subscribers, getCurrentUrl, route, Router, Route, Link, exec, segmentize, useRouter };
 export default Router;

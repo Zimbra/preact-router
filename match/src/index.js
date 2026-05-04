@@ -1,13 +1,40 @@
-import { h } from 'preact';
-import { Link as StaticLink, exec, useRouter } from 'preact-router';
+import { h, Component } from 'preact';
+import { Link as StaticLink, exec, useRouter, segmentize } from 'preact-router';
 
-export function Match(props) {
+class BasePathProvider extends Component {
+	getChildContext() {
+		return { 'preact-router-base': this.props.baseUrl };
+	}
+	render(props) {
+		return props.children;
+	}
+}
+
+export function Match(props, context) {
+	let baseUrl = props.basePath || '';
+	if (props.path) {
+		let segments = segmentize(props.path);
+		segments.forEach(segment => {
+			if (segment.indexOf(':') === -1) {
+				baseUrl = `${baseUrl  }/${  segment}`;
+			}
+		});
+	}
+	if (context && context['preact-router-base']) {
+		baseUrl = context['preact-router-base'] + baseUrl;
+	}
+
 	const router = useRouter()[0];
-	return props.children({
+
+	const route = props.basePath && props.path && !!props.path.indexOf(props.basePath)
+		? props.basePath + props.path
+		: props.path;
+
+	return h(BasePathProvider, { baseUrl }, props.children({
 		url: router.url,
 		path: router.path,
-		matches: exec(router.path || router.url, props.path, {}) !== false
-	});
+		matches: exec(router.path || router.url, route, {}) !== false
+	}));
 }
 
 export function Link({
@@ -26,7 +53,7 @@ export function Link({
 	let active = (matches && (activeClass || activeClassName)) || '';
 	props.class = inactive + (inactive && active && ' ') + active;
 
-	return <StaticLink {...props} />;
+	return h(StaticLink, props);
 }
 
 export default Match;
